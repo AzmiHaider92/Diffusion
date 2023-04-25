@@ -10,6 +10,7 @@ def config_parser(cmd=None):
     parser.add_argument('--batch_size', type=int, default=4, help='size of batch, duh')
     parser.add_argument('--checkpoints_dir', help='checkpoints to save path')
     parser.add_argument('--save_checkpoint_each', type=int, default=10000, help='save checkpoint each N iterations')
+    parser.add_argument('--par_refresh', type=int, default=100, help='print loss')
 
     if cmd is not None:
         return parser.parse_args(cmd)
