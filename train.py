@@ -1,3 +1,6 @@
+import datetime
+import logging
+
 import torch
 from diffusion_model import create_diffusion_model
 import numpy as np
@@ -29,7 +32,11 @@ if __name__ == '__main__':
     np.random.seed(20211202)
 
     args = config_parser()
+    log = logging.getLogger(__name__)
+    logging.basicConfig(filename=os.path.join(args.checkpoints_dir,  f'log{(datetime.datetime.now().strftime("-%Y%m%d-%H%M%S"))}.txt'))
+    log.setLevel(logging.INFO)
 
+    # diffusion
     training_images = load_data_arrays(args.images_dir)
     diffusion = create_diffusion_model(args.images_dim, args.images_channel)
     pbar = tqdm(range(args.num_iter), miniters=1, file=sys.stdout)
@@ -47,7 +54,7 @@ if __name__ == '__main__':
         # result
         l = loss.detach().item()
         if iter+1 % args.par_refresh == 0:
-            print(f'Iteration {iter:05d}:'
+            log.info(f'Iteration {iter:05d}:'
                 + f' loss = {l:.6f}')
 
         if iter+1 % args.save_checkpoint_each == 0:
