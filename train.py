@@ -30,9 +30,9 @@ if __name__ == '__main__':
 
     args = config_parser()
 
-    training_images = load_data_arrays(args.images_dir)  # images are normalized from 0 to 1
+    training_images = load_data_arrays(args.images_dir)
     diffusion = create_diffusion_model(args.images_dim, args.images_channel)
-    pbar = tqdm(range(args.iter), miniters=1, file=sys.stdout)
+    pbar = tqdm(range(args.num_iter), miniters=1, file=sys.stdout)
 
     trainingSampler = SimpleSampler(training_images.shape[0], args.batch_size)
     for iter in pbar:
