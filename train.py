@@ -53,11 +53,11 @@ if __name__ == '__main__':
 
         # result
         l = loss.detach().item()
-        if iter+1 % args.par_refresh == 0:
+        if (iter+1) % args.par_refresh == 0:
             log.info(f'Iteration {iter:05d}:'
                 + f' loss = {l:.6f}')
 
-        if iter+1 % args.save_checkpoint_each == 0:
+        if (iter+1) % args.save_checkpoint_each == 0:
             torch.save(diffusion.state_dict(), os.path.join(args.checkpoints_dir, 'diffusion.pt'))
 
     # save model
