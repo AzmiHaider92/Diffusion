@@ -21,14 +21,15 @@ class co3D_dataset(Dataset):
     def __init__(self, data_dir):
         # load co3d_data
         self.directory = data_dir
-        self.data = load_data_arrays(data_dir)
+        self.data_paths = glob.glob(data_dir + "/*.npy")
         # conver to torch dtypes
-        self.dataset = torch.tensor(self.data).float()
 
     # This returns the total amount of samples in your Dataset
     def __len__(self):
-        return len(self.dataset)
+        return len(self.data_paths)
 
     # This returns given an index the i-th sample and label
     def __getitem__(self, idx):
-        return self.dataset[idx]
+        item = np.load(self.data_paths[idx])
+        item = torch.Tensor(item)
+        return item

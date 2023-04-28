@@ -525,8 +525,9 @@ if __name__ == "__main__":
             trainer_config["accelerator"] = "gpu"
             #trainer_config["devices"] = ''.join([str(i)+',' for i in range(num_gpus)])[:-1]
             cpu = False
+        else:
+            num_gpus = 1
 
-        
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
         
@@ -662,13 +663,8 @@ if __name__ == "__main__":
         dataset = co3D_dataset(config.data.target)
         dl = DataLoader(dataset, batch_size=config.data.params.batch_size, num_workers=config.data.params.num_workers, shuffle=True, drop_last=True)
 
-        print("fuck7---")
         # configure learning rate
         bs, base_lr = config.data.params.batch_size, config.model.base_learning_rate
-        if not cpu:
-            ngpu = len(lightning_config.trainer.gpus.strip(",").split(','))
-        else:
-            ngpu = 1
         if 'accumulate_grad_batches' in lightning_config.trainer:
             accumulate_grad_batches = lightning_config.trainer.accumulate_grad_batches
         else:
@@ -676,10 +672,10 @@ if __name__ == "__main__":
         print(f"accumulate_grad_batches = {accumulate_grad_batches}")
         lightning_config.trainer.accumulate_grad_batches = accumulate_grad_batches
         if opt.scale_lr:
-            model.learning_rate = accumulate_grad_batches * ngpu * bs * base_lr
+            model.learning_rate = accumulate_grad_batches * num_gpus * bs * base_lr
             print(
                 "Setting learning rate to {:.2e} = {} (accumulate_grad_batches) * {} (num_gpus) * {} (batchsize) * {:.2e} (base_lr)".format(
-                    model.learning_rate, accumulate_grad_batches, ngpu, bs, base_lr))
+                    model.learning_rate, accumulate_grad_batches, num_gpus, bs, base_lr))
         else:
             model.learning_rate = base_lr
             print("++++ NOT USING LR SCALING ++++")
