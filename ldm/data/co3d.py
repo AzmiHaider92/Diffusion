@@ -31,5 +31,6 @@ class co3D_dataset(Dataset):
     # This returns given an index the i-th sample and label
     def __getitem__(self, idx):
         item = np.load(self.data_paths[idx])
+        item = np.reshape(item, (-1, item.shape[-2], item.shape[-1]))
         item = torch.Tensor(item)
         return item
