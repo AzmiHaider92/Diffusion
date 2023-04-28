@@ -364,6 +364,8 @@ class DDPM(pl.LightningModule):
         self.log_dict(loss_dict_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True)
 
     def on_train_batch_end(self, *args, **kwargs):
+        print(args)
+        print(kwargs)
         if self.use_ema:
             self.model_ema(self.model)
 
@@ -1026,8 +1028,9 @@ class LatentDiffusion(DDPM):
 
         loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
         loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
-
-        logvar_t = self.logvar[t].to(self.device)
+       
+        
+        logvar_t = self.logvar[t.to('cpu')].to(self.device)
         loss = loss_simple / torch.exp(logvar_t) + logvar_t
         # loss = loss_simple / torch.exp(self.logvar) + self.logvar
         if self.learn_logvar:
@@ -1041,7 +1044,7 @@ class LatentDiffusion(DDPM):
         loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
         loss += (self.original_elbo_weight * loss_vlb)
         loss_dict.update({f'{prefix}/loss': loss})
-
+        
         return loss, loss_dict
 
     def p_mean_variance(self, x, c, t, clip_denoised: bool, return_codebook_ids=False, quantize_denoised=False,
