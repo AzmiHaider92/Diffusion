@@ -5,3 +5,4 @@ checkpoints/
 *.sqsh
 *.yaml
 logs/
+src/

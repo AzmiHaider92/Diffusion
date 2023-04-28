@@ -12,6 +12,8 @@ from pytorch_lightning.loggers import CSVLogger
 from torch.utils.data import random_split, DataLoader, Dataset, Subset
 from functools import partial
 from PIL import Image
+import torch
+torch.set_float32_matmul_precision('medium')
 
 from pytorch_lightning import seed_everything
 from pytorch_lightning.trainer import Trainer
@@ -681,6 +683,9 @@ if __name__ == "__main__":
             print("++++ NOT USING LR SCALING ++++")
             print(f"Setting learning rate to {model.learning_rate:.2e}")
 
+        #print('--------------------')
+        #print(f"accelerator should be cuda : {trainer.accelerator}")
+        #print(f"strategy should be single device: {trainer.strategy}")
         trainer.fit(model, dl)
 
     except Exception as e:
