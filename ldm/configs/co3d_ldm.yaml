@@ -58,7 +58,7 @@ model:
           target: torch.nn.Identity
     cond_stage_config: __is_unconditional__
 data:
-  target: C:\Users\azmih\Desktop\Projects\Diffusion\data
+  target: /mnt/Diffusion/co3d_data
   params:
     batch_size: 4
     num_workers: 5
@@ -77,5 +77,5 @@ lightning:
 
   trainer:
     benchmark: True
-    gpus: 0,
+    gpus: 0,1
     accelerator: cuda

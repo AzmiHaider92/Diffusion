@@ -19,9 +19,9 @@ from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateM
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
 from pytorch_lightning.utilities import rank_zero_info
 
-from ldm.data.base import Txt2ImgIterableBaseDataset
-from ldm.data.co3d import co3D_dataset
-from ldm.util import instantiate_from_config
+from data.base import Txt2ImgIterableBaseDataset
+from data.co3d import co3D_dataset
+from util import instantiate_from_config
 
 
 def get_parser(**parser_kwargs):
@@ -519,21 +519,20 @@ if __name__ == "__main__":
         # merge trainer cli with config
         trainer_config = lightning_config.get("trainer", OmegaConf.create())
         # default to ddp
-        #trainer_config["accelerator"] = "ddp"
-
-        if not "gpus" in trainer_config:
-            del trainer_config["accelerator"]
-            cpu = True
-        else:
-            gpuinfo = trainer_config["gpus"]
-            print(f"Running on GPUs {gpuinfo}")
+        if torch.cuda.is_available():
+            num_gpus = torch.cuda.device_count()
+            print(f"found {num_gpus} gpus")
+            trainer_config["accelerator"] = "gpu"
+            #trainer_config["devices"] = ''.join([str(i)+',' for i in range(num_gpus)])[:-1]
             cpu = False
+
+        
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
-
+        
         # model
         model = instantiate_from_config(config.model)
-
+        
         # trainer and callbacks
         trainer_kwargs = dict()
         # default logger configs
@@ -621,6 +620,7 @@ if __name__ == "__main__":
                 "target": "main.CUDACallback"
             },
         }
+        
         if version.parse(pl.__version__) >= version.parse('1.4.0'):
             default_callbacks_cfg.update({'checkpoint_callback': modelckpt_cfg})
 
@@ -657,12 +657,12 @@ if __name__ == "__main__":
 
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
         trainer.logdir = logdir  ###
-
+        
         # data
         dataset = co3D_dataset(config.data.target)
         dl = DataLoader(dataset, batch_size=config.data.params.batch_size, num_workers=config.data.params.num_workers, shuffle=True, drop_last=True)
 
-
+        print("fuck7---")
         # configure learning rate
         bs, base_lr = config.data.params.batch_size, config.model.base_learning_rate
         if not cpu:
@@ -687,8 +687,8 @@ if __name__ == "__main__":
 
         trainer.fit(model, dl)
 
-    except Exception:
-        print(Exception)
+    except Exception as e:
+        print(e)
 
 
 
