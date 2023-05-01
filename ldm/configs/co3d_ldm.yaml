@@ -8,17 +8,51 @@ model:
     log_every_t: 200
     timesteps: 1000
     first_stage_key: 0
-    image_size: 256
-    channels: 192
+    image_size: 32 # original image size
+    channels: 5 # original image channels
     monitor:
+    # image dims are channels x image_size x image_size
+
+    first_stage_config:
+      target: ldm.models.autoencoder.VQModelInterface
+      params:
+        embed_dim: 128 # this is the output channel of the quant_conv which is the last layer after the encoder
+        n_embed: 8192
+        ckpt_path:
+        ddconfig:
+          double_z: false
+          z_channels: 7 # channels after the encoder
+          resolution: 64
+          in_channels: 5 # should be the same as the original image channel
+          out_ch: 8
+          ch: 256
+          ch_mult: # this is how many downsampling we do the original image
+            - 1
+            - 2
+            - 4
+          num_res_blocks: 2
+          attn_resolutions: [ ]
+          dropout: 0.0
+
+          # the original image: channels x image_size x image_size
+          # goes into the encoder, the output is: z_channels x times_downsampled(image_size) x times_downsampled(image_size)
+          # example: if image size is 9x16x16 and len(ch_mult)=3, z_channels=7, embed_dim=3
+          # the result after the encoder is: 7x4x4
+          # quant_conv layer changes the channel number from z_channels to embed_dim
+          # in our example: quant_conv - 7x4x4 -> 3x4x4
+          # so the output size is: embed_dim x times_downsampled(image_size) x times_downsampled(image_size)
+
+        lossconfig:
+          target: torch.nn.Identity
 
     unet_config:
       target: ldm.modules.diffusionmodules.openaimodel.UNetModel
       params:
         image_size: 64
-        in_channels: 256
-        out_channels: 256
-        model_channels: 224
+        in_channels: 128 # channels of the input to the Unet, it is equal to the output channel of the encoder embed_dim
+        out_channels: 128 # channels of the output of the Unet, shoudln't it be the same as the input?
+        model_channels: 224 # the unet downsamples/upsamples the input with increasing decreasing the number of channels
+                            # accordingly, the initial channel size is model_channels.
         attention_resolutions:
         # note: this isn\t actually the resolution but
         # the downsampling factor, i.e. this corresnponds to
@@ -27,41 +61,20 @@ model:
         - 8
         - 4
         - 2
-        num_res_blocks: 2
-        channel_mult:
-        - 1
-        - 2
-        - 3
-        - 4
+        num_res_blocks: 2 # number of residual blocks per downsample
+        channel_mult: # number of downsamples done
+        - 1 # first downsample, nothing happens, number of channels is model_channels
+        - 2 # second downsample, image is /2, number of channels is model_channels x 2
+        - 3 # second downsample, image is /2, number of channels is model_channels x 3
+        - 4 # second downsample, image is /2, number of channels is model_channels x 4
         num_head_channels: 32
-    first_stage_config:
-      target: ldm.models.autoencoder.VQModelInterface
-      params:
-        embed_dim: 256
-        n_embed: 8192
-        ckpt_path:
-        ddconfig:
-          double_z: false
-          z_channels: 128
-          resolution: 64
-          in_channels: 192
-          out_ch: 3
-          ch: 128
-          ch_mult:
-          - 1
-          - 2
-          - 4
-          num_res_blocks: 2
-          attn_resolutions: []
-          dropout: 0.0
-        lossconfig:
-          target: torch.nn.Identity
+
     cond_stage_config: __is_unconditional__
 data:
-  target: /mnt/Diffusion/co3d_data
+  target: C:\Users\azmih\Desktop\Projects\Diffusion\co3d_data
   params:
     batch_size: 4
-    num_workers: 5
+    num_workers: 2
     wrap: false
 
 

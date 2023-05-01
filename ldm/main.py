@@ -14,6 +14,7 @@ from functools import partial
 from PIL import Image
 import torch
 torch.set_float32_matmul_precision('medium')
+torch.cuda.empty_cache()
 
 from pytorch_lightning import seed_everything
 from pytorch_lightning.trainer import Trainer
