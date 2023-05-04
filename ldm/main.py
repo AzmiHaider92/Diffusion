@@ -301,7 +301,7 @@ class ImageLogger(Callback):
         self.batch_freq = batch_frequency
         self.max_images = max_images
         self.logger_log_images = {
-            pl.loggers.CSVLogger: self._testtube,
+            pl.loggers.WandbLogger: self._testtube,
         }
         self.log_steps = [2 ** n for n in range(int(np.log2(self.batch_freq)) + 1)]
         if not increase_log_steps:
@@ -551,9 +551,9 @@ if __name__ == "__main__":
                 }
             },
             "testtube": {
-                "target": "pytorch_lightning.loggers.CSVLogger",
+                "target": "pytorch_lightning.loggers.WandbLogger",
                 "params": {
-                    "name": "testtube",
+                    "name": nowname,
                     "save_dir": logdir,
                 }
             },

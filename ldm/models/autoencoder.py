@@ -2,11 +2,13 @@ import torch
 import pytorch_lightning as pl
 import torch.nn.functional as F
 from contextlib import contextmanager
-
+import numpy as np
 from taming.modules.vqvae.quantize import VectorQuantizer2 as VectorQuantizer
+from torch.optim.lr_scheduler import LambdaLR
 
 from ldm.modules.diffusionmodules.model import Encoder, Decoder
 from ldm.modules.distributions.distributions import DiagonalGaussianDistribution
+from ldm.modules.ema import LitEma
 
 from ldm.util import instantiate_from_config
 
@@ -298,8 +300,9 @@ class AutoencoderKL(pl.LightningModule):
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
         self.loss = instantiate_from_config(lossconfig)
-        assert ddconfig["double_z"]
-        self.quant_conv = torch.nn.Conv2d(2*ddconfig["z_channels"], 2*embed_dim, 1)
+        #assert ddconfig["double_z"]
+        d = 2 if ddconfig["double_z"] else 1
+        self.quant_conv = torch.nn.Conv2d(d*ddconfig["z_channels"], d*embed_dim, 1)
         self.post_quant_conv = torch.nn.Conv2d(embed_dim, ddconfig["z_channels"], 1)
         self.embed_dim = embed_dim
         if colorize_nlabels is not None:
@@ -342,13 +345,13 @@ class AutoencoderKL(pl.LightningModule):
         return dec, posterior
 
     def get_input(self, batch, k):
-        x = batch[k]
-        if len(x.shape) == 3:
-            x = x[..., None]
-        x = x.permute(0, 3, 1, 2).to(memory_format=torch.contiguous_format).float()
+        x = batch
+        #if len(x.shape) == 3:
+        #    x = x[..., None]
+        #x = x.permute(0, 3, 1, 2).to(memory_format=torch.contiguous_format).float()
         return x
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx, optimizer_idx=1):
         inputs = self.get_input(batch, self.image_key)
         reconstructions, posterior = self(inputs)
 
@@ -368,6 +371,7 @@ class AutoencoderKL(pl.LightningModule):
             self.log("discloss", discloss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_disc, prog_bar=False, logger=True, on_step=True, on_epoch=False)
             return discloss
+
 
     def validation_step(self, batch, batch_idx):
         inputs = self.get_input(batch, self.image_key)

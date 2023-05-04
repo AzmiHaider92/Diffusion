@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import pytorch_lightning as pl
+from torch import clamp
 from torch.optim.lr_scheduler import LambdaLR
 from einops import rearrange, repeat
 from contextlib import contextmanager
@@ -83,9 +84,9 @@ class DDPM(pl.LightningModule):
         self.image_size = image_size  # try conv?
         self.channels = channels
         self.use_positional_encodings = use_positional_encodings
-        self.model = DiffusionWrapper(unet_config, conditioning_key)
+        self.model = DiffusionWrapper(unet_config, conditioning_key) # define the diffusion model (e.g. Unet)
         count_params(self.model, verbose=True)
-        self.use_ema = use_ema
+        self.use_ema = use_ema # ema: exponential moving average
         if self.use_ema:
             self.model_ema = LitEma(self.model)
             print(f"Keeping EMAs of {len(list(self.model_ema.buffers()))}.")
@@ -501,10 +502,13 @@ class LatentDiffusion(DDPM):
 
     def instantiate_first_stage(self, config):
         model = instantiate_from_config(config)
-        self.first_stage_model = model.eval()
-        self.first_stage_model.train = disabled_train
-        for param in self.first_stage_model.parameters():
-            param.requires_grad = False
+        if config.params.train: # do you want to train the first stage model along with the diffusion model
+            self.first_stage_model = model
+        else:
+            self.first_stage_model = model.eval()
+            self.first_stage_model.train = disabled_train
+            for param in self.first_stage_model.parameters():
+                param.requires_grad = False
 
     def instantiate_cond_stage(self, config):
         if not self.cond_stage_trainable:
@@ -863,7 +867,9 @@ class LatentDiffusion(DDPM):
             return self.first_stage_model.encode(x)
 
     def shared_step(self, batch, **kwargs):
+        # encode the raw image
         x, c = self.get_input(batch, self.first_stage_key)
+        # apply diffusion
         loss = self(x, c)
         return loss
 

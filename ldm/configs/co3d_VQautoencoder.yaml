@@ -1,0 +1,47 @@
+model:
+  base_learning_rate: 4.5e-6
+  target: ldm.models.autoencoder.AutoencoderKL
+  params:
+    embed_dim: 5 # this is the dimension of channels in the middle of the AE
+    lossconfig:
+      target: ldm.modules.losses.LPIPSWithDiscriminator
+      params:
+        disc_start: 50001 # before this iteration, the discriminator is not trained - disc_factor=0
+        kl_weight: 0.000001
+        perceptual_weight: 0
+        disc_weight: 0.5
+        disc_in_channels: 5
+
+
+    ddconfig:
+      double_z: True
+      z_channels: 3 # the last layer of the encoder channel dim (and the first of the decoder)
+      resolution: 32 # not used
+      in_channels: 5
+      out_ch: 5
+      ch: 32 # start channel in the AE, this will be multiplied with each downsample
+      ch_mult: [ 1,2,4 ]  # num_down = len(ch_mult)-1
+      num_res_blocks: 2
+      attn_resolutions: [ ]
+      dropout: 0.0
+
+data:
+  target: C:\Users\azmih\Desktop\Projects\Diffusion\co3d_data
+  params:
+    batch_size: 4
+    num_workers: 2
+    wrap: True
+
+lightning:
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 5000 # when to log the metrics results to the logger (and out)
+        max_images: 8
+        increase_log_steps: False
+
+  trainer:
+    benchmark: True
+    strategy: dp
+    accelerator: gpu
