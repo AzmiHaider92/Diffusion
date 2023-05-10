@@ -354,15 +354,14 @@ class AutoencoderKL(pl.LightningModule):
     def training_step(self, batch, batch_idx, optimizer_idx=1):
         inputs = self.get_input(batch, self.image_key)
         reconstructions, posterior = self(inputs)
-
-        if optimizer_idx == 0:
-            # train encoder+decoder+logvar
-            aeloss, log_dict_ae = self.loss(inputs, reconstructions, posterior, optimizer_idx, self.global_step,
+        # train encoder+decoder+logvar
+        aeloss, log_dict_ae = self.loss(inputs, reconstructions, posterior, optimizer_idx, self.global_step,
                                             last_layer=self.get_last_layer(), split="train")
-            self.log("aeloss", aeloss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
-            self.log_dict(log_dict_ae, prog_bar=False, logger=True, on_step=True, on_epoch=False)
-            return aeloss
+        self.log("aeloss", aeloss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
+        self.log_dict(log_dict_ae, prog_bar=False, logger=True, on_step=True, on_epoch=False)
+        return aeloss
 
+        '''
         if optimizer_idx == 1:
             # train the discriminator
             discloss, log_dict_disc = self.loss(inputs, reconstructions, posterior, optimizer_idx, self.global_step,
@@ -371,6 +370,7 @@ class AutoencoderKL(pl.LightningModule):
             self.log("discloss", discloss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
             self.log_dict(log_dict_disc, prog_bar=False, logger=True, on_step=True, on_epoch=False)
             return discloss
+        '''
 
 
     def validation_step(self, batch, batch_idx):
@@ -394,9 +394,9 @@ class AutoencoderKL(pl.LightningModule):
                                   list(self.quant_conv.parameters())+
                                   list(self.post_quant_conv.parameters()),
                                   lr=lr, betas=(0.5, 0.9))
-        opt_disc = torch.optim.Adam(self.loss.discriminator.parameters(),
-                                    lr=lr, betas=(0.5, 0.9))
-        return [opt_ae, opt_disc], []
+        #opt_disc = torch.optim.Adam(self.loss.discriminator.parameters(),
+        #                            lr=lr, betas=(0.5, 0.9))
+        return [opt_ae], [] #[opt_ae, opt_disc], []
 
     def get_last_layer(self):
         return self.decoder.conv_out.weight

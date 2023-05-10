@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 
 from packaging import version
 from omegaconf import OmegaConf
-from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from torch.utils.data import random_split, DataLoader, Dataset, Subset
 from functools import partial
 from PIL import Image
@@ -509,19 +509,20 @@ if __name__ == "__main__":
         nowname = now + name + opt.postfix
         logdir = os.path.join(opt.logdir, nowname)
 
+    # init log folder
     ckptdir = os.path.join(logdir, "checkpoints")
     cfgdir = os.path.join(logdir, "configs")
     seed_everything(opt.seed)
 
     try:
-        # init and save configs
+        # trainer configs
         configs = [OmegaConf.load(cfg) for cfg in opt.base]
         cli = OmegaConf.from_dotlist(unknown)
         config = OmegaConf.merge(*configs, cli)
         lightning_config = config.pop("lightning", OmegaConf.create())
         # merge trainer cli with config
         trainer_config = lightning_config.get("trainer", OmegaConf.create())
-        # default to ddp
+        # default to gpu
         if torch.cuda.is_available():
             num_gpus = torch.cuda.device_count()
             print(f"found {num_gpus} gpus")
@@ -529,12 +530,14 @@ if __name__ == "__main__":
             #trainer_config["devices"] = ''.join([str(i)+',' for i in range(num_gpus)])[:-1]
             cpu = False
         else:
+            # this is used later - no worries it doesn't mean there is a gpu
             num_gpus = 1
 
+        # lightning trainer
         trainer_opt = argparse.Namespace(**trainer_config)
         lightning_config.trainer = trainer_config
-        
-        # model
+
+        # init model
         model = instantiate_from_config(config.model)
         
         # trainer and callbacks
@@ -549,16 +552,9 @@ if __name__ == "__main__":
                     "offline": opt.debug,
                     "id": nowname,
                 }
-            },
-            "testtube": {
-                "target": "pytorch_lightning.loggers.WandbLogger",
-                "params": {
-                    "name": nowname,
-                    "save_dir": logdir,
-                }
-            },
+            }
         }
-        default_logger_cfg = default_logger_cfgs["testtube"]
+        default_logger_cfg = default_logger_cfgs["wandb"]
         if "logger" in lightning_config:
             logger_cfg = lightning_config.logger
         else:
@@ -567,6 +563,7 @@ if __name__ == "__main__":
         trainer_kwargs["logger"] = instantiate_from_config(logger_cfg)
 
         # modelcheckpoint - use TrainResult/EvalResult(checkpoint_on=metric) to
+        '''
         # specify which metric is used to determine best models
         default_modelckpt_cfg = {
             "target": "pytorch_lightning.callbacks.ModelCheckpoint",
@@ -590,7 +587,7 @@ if __name__ == "__main__":
         print(f"Merged modelckpt-cfg: \n{modelckpt_cfg}")
         if version.parse(pl.__version__) < version.parse('1.4.0'):
             trainer_kwargs["checkpoint_callback"] = instantiate_from_config(modelckpt_cfg)
-
+        '''
         # add callback which sets up log directory
         default_callbacks_cfg = {
             "setup_callback": {
@@ -605,14 +602,6 @@ if __name__ == "__main__":
                     "lightning_config": lightning_config,
                 }
             },
-            "image_logger": {
-                "target": "main.ImageLogger",
-                "params": {
-                    "batch_frequency": 750,
-                    "max_images": 4,
-                    "clamp": True
-                }
-            },
             "learning_rate_logger": {
                 "target": "main.LearningRateMonitor",
                 "params": {
@@ -625,14 +614,15 @@ if __name__ == "__main__":
             },
         }
         
-        if version.parse(pl.__version__) >= version.parse('1.4.0'):
-            default_callbacks_cfg.update({'checkpoint_callback': modelckpt_cfg})
+        #if version.parse(pl.__version__) >= version.parse('1.4.0'):
+        #    default_callbacks_cfg.update({'checkpoint_callback': modelckpt_cfg})
 
         if "callbacks" in lightning_config:
             callbacks_cfg = lightning_config.callbacks
         else:
             callbacks_cfg = OmegaConf.create()
 
+        '''
         if 'metrics_over_trainsteps_checkpoint' in callbacks_cfg:
             print(
                 'Caution: Saving checkpoints every n train steps without deleting. This might require some free space.')
@@ -650,7 +640,7 @@ if __name__ == "__main__":
                      }
             }
             default_callbacks_cfg.update(default_metrics_over_trainsteps_ckpt_dict)
-
+        '''
         callbacks_cfg = OmegaConf.merge(default_callbacks_cfg, callbacks_cfg)
         if 'ignore_keys_callback' in callbacks_cfg and hasattr(trainer_opt, 'resume_from_checkpoint'):
             callbacks_cfg.ignore_keys_callback.params['ckpt_path'] = trainer_opt.resume_from_checkpoint
@@ -661,10 +651,7 @@ if __name__ == "__main__":
 
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
         trainer.logdir = logdir  ###
-        
-        # data
-        dataset = co3D_dataset(config.data.target)
-        dl = DataLoader(dataset, batch_size=config.data.params.batch_size, num_workers=config.data.params.num_workers, shuffle=True, drop_last=True)
+        trainer.logger = WandbLogger(project="Diffusion")
 
         # configure learning rate
         bs, base_lr = config.data.params.batch_size, config.model.base_learning_rate
@@ -687,6 +674,12 @@ if __name__ == "__main__":
         #print('--------------------')
         #print(f"accelerator should be cuda : {trainer.accelerator}")
         #print(f"strategy should be single device: {trainer.strategy}")
+
+        # data
+        dataset = co3D_dataset(config.data.target)
+        dl = DataLoader(dataset, batch_size=config.data.params.batch_size,
+                        num_workers=config.data.params.num_workers, shuffle=True, drop_last=True)
+
         trainer.fit(model, dl)
 
     except Exception as e:
