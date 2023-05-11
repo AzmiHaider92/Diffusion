@@ -507,15 +507,9 @@ if __name__ == "__main__":
             accumulate_grad_batches = 1
         print(f"accumulate_grad_batches = {accumulate_grad_batches}")
         lightning_config.trainer.accumulate_grad_batches = accumulate_grad_batches
-        if opt.scale_lr:
-            model.learning_rate = accumulate_grad_batches * num_gpus * bs * base_lr
-            print(
-                "Setting learning rate to {:.2e} = {} (accumulate_grad_batches) * {} (num_gpus) * {} (batchsize) * {:.2e} (base_lr)".format(
-                    model.learning_rate, accumulate_grad_batches, num_gpus, bs, base_lr))
-        else:
-            model.learning_rate = base_lr
-            print("++++ NOT USING LR SCALING ++++")
-            print(f"Setting learning rate to {model.learning_rate:.2e}")
+        model.learning_rate = accumulate_grad_batches * num_gpus * bs * base_lr
+        model.step_size = config.model.step_size # every step_size epochs the lr is multiplied by gamma
+        model.gamma = config.model.gamma
 
         #print('--------------------')
         #print(f"accelerator should be cuda : {trainer.accelerator}")

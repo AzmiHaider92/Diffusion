@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from contextlib import contextmanager
 import numpy as np
 from taming.modules.vqvae.quantize import VectorQuantizer2 as VectorQuantizer
-from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import LambdaLR, StepLR
 
 from ldm.modules.diffusionmodules.model import Encoder, Decoder
 from ldm.modules.distributions.distributions import DiagonalGaussianDistribution
@@ -352,6 +352,7 @@ class AutoencoderKL(pl.LightningModule):
         return x
 
     def training_step(self, batch, batch_idx, optimizer_idx=1):
+        #print(f'current epoch={self.current_epoch}, lr = {self.optimizers().param_groups[0]["lr"]}')
         inputs = self.get_input(batch, self.image_key)
         reconstructions, posterior = self(inputs)
         # train encoder+decoder+logvar
@@ -394,9 +395,14 @@ class AutoencoderKL(pl.LightningModule):
                                   list(self.quant_conv.parameters())+
                                   list(self.post_quant_conv.parameters()),
                                   lr=lr, betas=(0.5, 0.9))
+        optimizers = [opt_ae]
+        schedulers = []
+        if self.step_size > 0:
+            scheduler = StepLR(opt_ae, step_size=self.step_size, gamma=self.gamma)
+            schedulers = [{"scheduler": scheduler, "interval": "epoch"}]
         #opt_disc = torch.optim.Adam(self.loss.discriminator.parameters(),
         #                            lr=lr, betas=(0.5, 0.9))
-        return [opt_ae], [] #[opt_ae, opt_disc], []
+        return optimizers, schedulers #[opt_ae, opt_disc], []
 
     def get_last_layer(self):
         return self.decoder.conv_out.weight
