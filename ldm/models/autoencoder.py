@@ -293,15 +293,13 @@ class AutoencoderKL(pl.LightningModule):
                  ignore_keys=[],
                  image_key="image",
                  colorize_nlabels=None,
-                 monitor=None,
-                 debug=True
+                 monitor=None
                  ):
         super().__init__()
         self.image_key = image_key
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
         self.loss = instantiate_from_config(lossconfig)
-        self.debug = debug
         #assert ddconfig["double_z"]
         d = 2 if ddconfig["double_z"] else 1
         self.quant_conv = torch.nn.Conv2d(d*ddconfig["z_channels"], d*embed_dim, 1)
@@ -330,22 +328,11 @@ class AutoencoderKL(pl.LightningModule):
         h = self.encoder(x)
         moments = self.quant_conv(h)
         posterior = DiagonalGaussianDistribution(moments)
-
-        if self.debug: #this is for printing once only
-            print(f"DEBUG =======> Input shape : {x.shape}")
-            print(f"DEBUG =======> encoder output shape: {h.shape}")
-            print(f"DEBUG =======> quant_conv output shape : {moments.shape}")
-
         return posterior
 
     def decode(self, z):
         z = self.post_quant_conv(z)
         dec = self.decoder(z)
-
-        if self.debug:
-            print(f"DEBUG =======> post_quant_conv output shape : {z.shape}")
-            print(f"DEBUG =======> Decoder output shape : {dec.shape}")
-
         return dec
 
     def forward(self, input, sample_posterior=True):
