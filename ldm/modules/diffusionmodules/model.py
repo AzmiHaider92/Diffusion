@@ -368,7 +368,7 @@ class Model(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, *, ch, out_ch, ch_mult=(1,2,4,8), num_res_blocks,
                  attn_resolutions, dropout=0.0, resamp_with_conv=True, in_channels,
-                 resolution, z_channels, double_z=True, use_linear_attn=False, attn_type="vanilla",
+                 input_resolution, z_channels, double_z=True, use_linear_attn=False, attn_type="vanilla",
                  **ignore_kwargs):
         super().__init__()
         if use_linear_attn: attn_type = "linear"
@@ -376,7 +376,7 @@ class Encoder(nn.Module):
         self.temb_ch = 0
         self.num_resolutions = len(ch_mult)
         self.num_res_blocks = num_res_blocks
-        self.resolution = resolution
+        self.resolution = input_resolution
         self.in_channels = in_channels
 
         # downsampling
@@ -386,7 +386,7 @@ class Encoder(nn.Module):
                                        stride=1,
                                        padding=1)
 
-        curr_res = resolution
+        curr_res = input_resolution
         in_ch_mult = (1,)+tuple(ch_mult)
         self.in_ch_mult = in_ch_mult
         self.down = nn.ModuleList()
@@ -462,7 +462,7 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, *, ch, out_ch, ch_mult=(1,2,4,8), num_res_blocks,
                  attn_resolutions, dropout=0.0, resamp_with_conv=True, in_channels,
-                 resolution, z_channels, give_pre_end=False, tanh_out=False, use_linear_attn=False,
+                 input_resolution, z_channels, give_pre_end=False, tanh_out=False, use_linear_attn=False,
                  attn_type="vanilla", **ignorekwargs):
         super().__init__()
         if use_linear_attn: attn_type = "linear"
@@ -470,7 +470,7 @@ class Decoder(nn.Module):
         self.temb_ch = 0
         self.num_resolutions = len(ch_mult)
         self.num_res_blocks = num_res_blocks
-        self.resolution = resolution
+        self.resolution = input_resolution
         self.in_channels = in_channels
         self.give_pre_end = give_pre_end
         self.tanh_out = tanh_out
@@ -478,7 +478,7 @@ class Decoder(nn.Module):
         # compute in_ch_mult, block_in and curr_res at lowest res
         in_ch_mult = (1,)+tuple(ch_mult)
         block_in = ch*ch_mult[self.num_resolutions-1]
-        curr_res = resolution // 2**(self.num_resolutions-1)
+        curr_res = input_resolution // 2**(self.num_resolutions-1)
         self.z_shape = (1,z_channels,curr_res,curr_res)
         print("Working with z of shape {} = {} dimensions.".format(
             self.z_shape, np.prod(self.z_shape)))
